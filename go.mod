@@ -1,4 +1,4 @@
-module barmoury
+module github.com/barmoury/barmoury-go
 
 go 1.20
 

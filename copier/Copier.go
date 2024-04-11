@@ -1,8 +1,9 @@
 package copier
 
 import (
-	"barmoury/util"
 	"reflect"
+
+	"github.com/barmoury/barmoury-go/util"
 )
 
 func Copy(target interface{}, sources ...interface{}) interface{} {

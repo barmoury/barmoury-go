@@ -1,8 +1,9 @@
 package timeo
 
 import (
-	"barmoury/util"
 	"time"
+
+	"github.com/barmoury/barmoury-go/util"
 )
 
 func Resolve(model interface{}) {

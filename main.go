@@ -1,9 +1,10 @@
 package main
 
 import (
-	"barmoury/api/model"
-	"barmoury/trace"
 	"fmt"
+
+	"github.com/barmoury/barmoury-go/api/model"
+	"github.com/barmoury/barmoury-go/trace"
 )
 
 type User struct {

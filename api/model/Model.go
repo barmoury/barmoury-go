@@ -1,9 +1,10 @@
 package model
 
 import (
-	"barmoury/api/timeo"
-	"barmoury/copier"
 	"time"
+
+	"github.com/barmoury/barmoury-go/api/timeo"
+	"github.com/barmoury/barmoury-go/copier"
 )
 
 type Model struct {
