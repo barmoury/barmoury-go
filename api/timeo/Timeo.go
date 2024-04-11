@@ -26,3 +26,8 @@ func ResolveCreated(model interface{}) {
 func ResolveUpdated(model interface{}) {
 	util.SetFieldValue(model, "UpdatedAt", time.Now())
 }
+
+func DateDiffInMinutes(a time.Time, b time.Time) uint64 {
+	d := b.Sub(a)
+	return uint64(d.Minutes())
+}
