@@ -11,7 +11,7 @@ func Resolve(model interface{}) {
 	if !ok {
 		return
 	}
-	if modelId.Uint() <= 0 {
+	if modelId.IsZero() {
 		ResolveCreated(model)
 	} else {
 		ResolveUpdated(model)

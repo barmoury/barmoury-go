@@ -8,9 +8,13 @@ import (
 	"github.com/barmoury/barmoury-go/util"
 )
 
+type PureLogger interface {
+	Log(...any)
+}
+
 type loggerInterface interface {
 	Flush()
-	PreLog(Log)
+	PreLog(*Log)
 	GetCache() cache.Cache[Log]
 }
 
@@ -28,7 +32,7 @@ func NewLogger() Logger {
 }
 
 func (ad *Logger) Log(t loggerInterface, a Log) {
-	t.PreLog(a)
+	t.PreLog(&a)
 	ad.BufferSize++
 	if util.CacheWriteAlong(ad.BufferSize, ad.DateLastFlushed, t.GetCache(), a) {
 		ad.BufferSize = 0
@@ -53,16 +57,18 @@ func (ad *Logger) Warn(t loggerInterface, s string, args ...any) {
 	ad.Log(t, Log{Level: WARN, Content: formatContent(s, args...)})
 }
 
-func (ad *Logger) Error(t loggerInterface, s string, args ...any) {
-	ad.Log(t, Log{Level: ERROR, Content: formatContent(s, args...)})
-}
-
 func (ad *Logger) Trace(t loggerInterface, s string, args ...any) {
 	ad.Log(t, Log{Level: TRACE, Content: formatContent(s, args...)})
 }
 
+func (ad *Logger) Error(t loggerInterface, s string, args ...any) {
+	s = formatContent(s, args...) + "\n" + util.StackTraceAsString(4)
+	ad.Log(t, Log{Level: ERROR, Content: s})
+}
+
 func (ad *Logger) Fatal(t loggerInterface, s string, args ...any) {
-	ad.Log(t, Log{Level: FATAL, Content: formatContent(s, args...)})
+	s = formatContent(s, args...) + "\n" + util.StackTraceAsString(4)
+	ad.Log(t, Log{Level: FATAL, Content: s})
 	os.Exit(-1199810)
 }
 

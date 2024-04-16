@@ -1,9 +1,16 @@
 package audit
 
-import "github.com/barmoury/barmoury-go/trace"
+import (
+	"time"
+
+	"github.com/barmoury/barmoury-go/api/timeo"
+	"github.com/barmoury/barmoury-go/copier"
+	"github.com/barmoury/barmoury-go/eloquent"
+	"github.com/barmoury/barmoury-go/trace"
+)
 
 type Audit[T any] struct {
-	Id          uint           `json:"id" gorm:"primary_key"`
+	Id          uint           `json:"id" gorm:"primary_key" copy_property:"ignore"`
 	Type        string         `json:"type" binding:"required"`
 	Group       string         `json:"group" binding:"required"`
 	Status      string         `json:"status"`
@@ -19,9 +26,15 @@ type Audit[T any] struct {
 	Location    trace.Location `json:"location" gorm:"serializer:json"`
 	Auditable   any            `json:"auditable" gorm:"serializer:json"`
 	ExtraData   any            `json:"extra_data" gorm:"serializer:json"`
-	CreatedAt   string         `json:"created_at" gorm:"<-:false"`
+	CreatedAt   time.Time      `json:"created_at,omitempty" gorm:"<-:false"`
 }
 
 func (Audit[T]) TableName() string {
 	return "audits"
+}
+
+func (model *Audit[T]) Resolve(baseRequest any, queryArmoury eloquent.QueryArmoury, userDetails any) *Audit[T] {
+	copier.Copy(model, baseRequest)
+	timeo.Resolve(model)
+	return model
 }
