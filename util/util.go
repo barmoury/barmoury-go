@@ -161,3 +161,9 @@ func RequestForResponse[T any](method string, url string, body []byte, headers m
 func PostRequestForResponse[T any](url string, body []byte, headers map[string]string) (int, T) {
 	return RequestForResponse[T]("POST", url, body, headers)
 }
+
+func ToSnakeCase(str string) string {
+	s := regexp.MustCompile("(.)([A-Z][a-z]+)").ReplaceAllString(str, "${1}_${2}")
+	s = regexp.MustCompile("([a-z0-9])([A-Z])").ReplaceAllString(s, "${1}_${2}")
+	return strings.ToLower(s)
+}

@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/barmoury/barmoury-go/api/annotation"
@@ -16,16 +18,16 @@ import (
 )
 
 var (
-	SQL_QUERY_SUCCESSFUL    = "Query successfully"
-	SQL_QUERY_ERROR_MESSAGE = "You do not have the '%s' permission to perform this operation"
+	SQL_QUERY_SUCCESSFUL    = "query successfully"
+	SQL_QUERY_ERROR_MESSAGE = "you do not have the '%s' permission to perform this operation"
 )
 
 type BactuatorController struct {
 	Self           any
 	SpringLike     bool
-	ResourcesMap   map[string]any
-	IntrospectMap  map[string]any
-	ControllersMap map[string]any
+	resourcesMap   map[string]any
+	introspectMap  map[string]any
+	controllersMap map[string]any
 	QueryArmoury   eloquent.QueryArmoury
 	config.BacuatorInterface
 }
@@ -87,7 +89,18 @@ func (c *BactuatorController) processResponse(g *gin.Context, httpStatus int, ap
 		reflect.ValueOf(apiResponseOrData), reflect.ValueOf(message))
 }
 
+func GetSchemaName(q string) string {
+	rx := regexp.MustCompile(`\w+[.]\w+`)
+	matches := rx.FindAllString(strings.Split(q, "FROM")[1], -1)
+	if len(matches) > 0 {
+		return strings.Split(matches[0], ".")[0]
+	}
+	return ""
+}
+
+// TODO validate and panic if the query is not for a specific schema
 func (c *BactuatorController) executeQueryForResult(g *gin.Context, query string, includeColumnsName bool) any {
+	//var t string
 	qu := strings.ToUpper(query)
 	if strings.Contains(qu, "SELECT") && !(util.InvokeSurefireMethod(c.Self, "PrincipalCan", reflect.ValueOf(g), reflect.ValueOf("SELECT"))[0].Interface().(bool)) {
 		panic(util.StrFormat(SQL_QUERY_ERROR_MESSAGE, "SELECT"))
@@ -99,13 +112,63 @@ func (c *BactuatorController) executeQueryForResult(g *gin.Context, query string
 		panic(util.StrFormat(SQL_QUERY_ERROR_MESSAGE, "INSERT"))
 	} else if strings.Contains(qu, "TRUNCATE") && !(util.InvokeSurefireMethod(c.Self, "PrincipalCan", reflect.ValueOf(g), reflect.ValueOf("TRUNCATE"))[0].Interface().(bool)) {
 		panic(util.StrFormat(SQL_QUERY_ERROR_MESSAGE, "TRUNCATE"))
+	} else if !(util.InvokeSurefireMethod(c.Self, "PrincipalCan", reflect.ValueOf(g), reflect.ValueOf("UNKNOWN"))[0].Interface().(bool)) {
+		panic(util.StrFormat(SQL_QUERY_ERROR_MESSAGE, "UNKNOWN"))
 	}
-	r, err := c.QueryArmoury.Db.Exec(query).Rows()
-	if err != nil {
-		return err.Error()
+	var results []map[string]interface{}
+	r := c.QueryArmoury.Db.Raw(query).Find(&results)
+	if r.Error != nil {
+		return r.Error.Error()
 	}
-	fmt.Println("THE ER", r)
-	return r
+	if !c.SpringLike || results == nil || !strings.Contains(qu, "SELECT") {
+		return results
+	}
+	cr := [][]any{}
+	for i, row := range results {
+		crr := []any{}
+		ccr := []any{}
+		for k, v := range row {
+			crr = append(crr, v)
+			if i == 0 && includeColumnsName {
+				ccr = append(ccr, k)
+			}
+		}
+		if i == 0 && includeColumnsName {
+			cr = append(cr, ccr)
+		}
+		cr = append(cr, crr)
+	}
+	return cr
+}
+
+func (c *BactuatorController) resolveCasing(q string) string {
+	if util.InvokeSurefireMethod(c.Self, "IsSnakeCase")[0].Interface().(bool) {
+		return util.ToSnakeCase(q)
+	}
+	return q
+}
+
+func (c *BactuatorController) resolveControllers(q string) {
+	c.controllersMap = map[string]any{}
+	fmt.Println("TO GET THE CONTrOLLER", q)
+}
+
+func (c *BactuatorController) resolveResources() {
+	c.resourcesMap = map[string]any{}
+	fmt.Println("TO GET THE resolveResources")
+}
+
+func (c *BactuatorController) resolveIntrospect() {
+	c.introspectMap = map[string]any{}
+	c.introspectMap["resources"] = c.resourcesMap
+	c.introspectMap["controllers"] = c.controllersMap
+	c.introspectMap["name"] = util.InvokeSurefireMethod(c.Self, "ServiceName")[0].Interface()
+	c.introspectMap["description"] = util.InvokeSurefireMethod(c.Self, "ServiceDescription")[0].Interface()
+	c.introspectMap[c.resolveCasing("logUrls")] = util.InvokeSurefireMethod(c.Self, "LogUrls")[0].Interface()
+	c.introspectMap[c.resolveCasing("iconLocation")] = util.InvokeSurefireMethod(c.Self, "IconLocation")[0].Interface()
+	c.introspectMap[c.resolveCasing("serviceApiName")] = util.InvokeSurefireMethod(c.Self, "ServiceApiName")[0].Interface()
+	c.introspectMap[c.resolveCasing("databaseQueryRoute")] = util.InvokeSurefireMethod(c.Self, "DatabaseQueryRoute")[0].Interface()
+	c.introspectMap[c.resolveCasing("databaseMultipleQueryRoute")] = util.InvokeSurefireMethod(c.Self, "DatabaseMultipleQueryRoute")[0].Interface()
 }
 
 // @RequestMapping{Value:  "/health", Method: annotation.GET}
@@ -118,7 +181,15 @@ func (c *BactuatorController) HealthCheck(g *gin.Context) {
 
 // @RequestMapping{Value:  "/introspect", Method: annotation.GET}
 func (c *BactuatorController) Introspect(g *gin.Context) {
-
+	if c.introspectMap == nil {
+		c.resolveControllers(os.Getenv("SERVICE_BASE_URL"))
+		c.resolveResources()
+		c.resolveIntrospect()
+	}
+	c.introspectMap["users"] = util.InvokeSurefireMethod(c.Self, "UserStatistics")[0].Interface()
+	c.introspectMap["earnings"] = util.InvokeSurefireMethod(c.Self, "EarningStatistics")[0].Interface()
+	c.introspectMap[c.resolveCasing("downloadCounts")] = util.InvokeSurefireMethod(c.Self, "DownloadsCount")[0].Interface()
+	c.processResponse(g, http.StatusOK, model.NewApiResponse(c.introspectMap, "introspect data fetched successfully"), "")
 }
 
 // @RequestMapping{Value:  "/database/query/single", Method: annotation.POST}

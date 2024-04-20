@@ -7,11 +7,13 @@ import (
 	"reflect"
 
 	"github.com/barmoury/barmoury-go/api/annotation"
+	"github.com/barmoury/barmoury-go/log"
 	"github.com/barmoury/barmoury-go/meta"
 	"github.com/barmoury/barmoury-go/util"
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 var registeredRoutes bool
@@ -28,7 +30,7 @@ type BacuatorInterface interface {
 	DownloadsCount() uint64
 	ServiceDescription() string
 	DatabaseQueryRoute() string
-	LogUrls() map[string][]string
+	LogUrls() []map[string]string
 	UserStatistics() map[string]uint64
 	DatabaseMultipleQueryRoute() string
 	EarningStatistics() map[string]uint64
@@ -39,6 +41,7 @@ type BacuatorInterface interface {
 type RouterOption struct {
 	Prefix      string
 	Db          *gorm.DB
+	LogLevel    log.Level
 	RouterGroup *gin.RouterGroup
 	Bacuator    BacuatorInterface
 }
@@ -50,7 +53,7 @@ func RegisterControllers(engine *gin.Engine, opts RouterOption, controllers []me
 		opts.RouterGroup = engine.Group(util.GetOrDefault(opts.Prefix, ""))
 	}
 	if opts.Db == nil {
-		opts.Db = createDefaultGormDbConnection()
+		opts.Db = createDefaultGormDbConnection(opts.LogLevel)
 		BarmouryGormDb = opts.Db
 	}
 	if opts.Bacuator != nil {
@@ -129,7 +132,22 @@ func registerRoutes(controller interface{}, requestMapping annotation.RequestMap
 	})
 }
 
-func createDefaultGormDbConnection() *gorm.DB {
+func translateLogLevel(l log.Level) logger.LogLevel {
+	if l == "" {
+		return logger.Silent
+	}
+	switch l {
+	case log.ERROR:
+	case log.FATAL:
+	case log.PANIC:
+		return logger.Error
+	case log.WARN:
+		return logger.Warn
+	}
+	return logger.Info
+}
+
+func createDefaultGormDbConnection(l log.Level) *gorm.DB {
 	var err error
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?%s",
 		os.Getenv("DATABASE_USERNAME"),
@@ -138,7 +156,9 @@ func createDefaultGormDbConnection() *gorm.DB {
 		os.Getenv("DATABASE_PORT"),
 		os.Getenv("DATABASE_SCHEMA"),
 		os.Getenv("DATABASE_QUERY_STRING"))
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
+		Logger: logger.Default.LogMode(translateLogLevel(l)),
+	})
 
 	if err != nil {
 		panic(fmt.Sprintf("barmoury - Error connecting to database : error=%s", err))
