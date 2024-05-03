@@ -104,9 +104,9 @@ func ReplaceByRegex(s string, r string, v string) string {
 }
 
 func PatternToRegex(p string) *regexp.Regexp {
-	p = ReplaceByRegex(p, `:([\w])+`, "**")
-	//t := If(!strings.Contains(p, "**"), `!((.)+)`, "")
-	f := ReplaceByRegex(ReplaceByRegex(ReplaceByRegex(p, `\*\*`, `(.)+`), `\?`, `(.)`), `\*`, `((?!(\/)).)+`) + "" //t
+	t := If(strings.HasSuffix(p, "**"), ``, `$`)
+	p = ReplaceByRegex(p, `:([\w])+`, `(\\w)+`)
+	f := ReplaceByRegex(ReplaceByRegex(ReplaceByRegex(p, `\*\*`, `(.)+`), `\?`, `(.)`), `\*`, `((?!(\/)).)+`) + t
 	r, _ := regexp.Compile(f)
 	return r
 }

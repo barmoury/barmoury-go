@@ -12,7 +12,7 @@ import (
 type Audit[T any] struct {
 	Id          uint           `json:"id" gorm:"primary_key" copy_property:"ignore"`
 	Type        string         `json:"type" binding:"required"`
-	Group       string         `json:"group" binding:"required"`
+	Group       string         `json:"group"`
 	Status      string         `json:"status"`
 	Source      string         `json:"source" binding:"required"`
 	Action      string         `json:"action" binding:"required"`

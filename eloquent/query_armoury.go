@@ -69,7 +69,7 @@ func (q QueryArmoury) buildPageFilter(db *gorm.DB, c *gin.Context) (*gorm.DB, in
 
 func (q QueryArmoury) PaginateResult(rows any, rowsCount int64, page int, offset int64, limit int64, count int64, sorted bool, paged bool) map[string]any {
 	sort := map[string]any{
-		"empty":    !sorted,
+		"empty":    rowsCount == 0,
 		"sorted":   sorted,
 		"unsorted": !sorted,
 	}
