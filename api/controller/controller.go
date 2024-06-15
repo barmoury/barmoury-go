@@ -198,7 +198,7 @@ func (c *Controller[T1, T2]) GetRouteMethodRoles(routeMethod RouteMethod) []stri
 	return []string{}
 }
 
-func (c *Controller[T1, T2]) validateRouteAccess(g *gin.Context, routeMethod RouteMethod, errMessage string) {
+func (c *Controller[T1, T2]) ValidateRouteAccess(g *gin.Context, routeMethod RouteMethod, errMessage string) {
 	if util.InvokeSurefireMethod(c.Self, "ShouldNotHonourMethod", reflect.ValueOf(routeMethod))[0].Bool() {
 		panic(errors.New(errMessage))
 	}
@@ -227,7 +227,7 @@ func (c *Controller[T1, T2]) ResolveRequestPayload(authentication any, resourceR
 	return t1
 }
 
-func (c *Controller[T1, T2]) getAuthentication(g *gin.Context) any {
+func (c *Controller[T1, T2]) GetAuthentication(g *gin.Context) any {
 	if a, ok := g.Get("user"); ok {
 		return a
 	}
@@ -241,8 +241,8 @@ func (c *Controller[T1, T2]) processResponse(g *gin.Context, httpStatus int, api
 
 // @RequestMapping{Value:  "/stat", Method: annotation.GET}
 func (c *Controller[T1, T2]) Stat(g *gin.Context) {
-	authentication := c.getAuthentication(g)
-	c.validateRouteAccess(g, STAT, "the GET '**/stat' route is not supported for this resource")
+	authentication := c.GetAuthentication(g)
+	c.ValidateRouteAccess(g, STAT, "the GET '**/stat' route is not supported for this resource")
 	st := util.InvokeSurefireMethod(c.Self, "SanitizeAndGetRequestParameters", reflect.ValueOf(g), reflect.ValueOf(authentication))[0].Interface().(*gin.Context)
 	g = util.InvokeSurefireMethod(c.Self, "PreQuery", reflect.ValueOf(st), reflect.ValueOf(authentication))[0].Interface().(*gin.Context)
 	c.processResponse(g, http.StatusOK, model.NewApiResponse([]T1{}, util.StrFormat("%s statistics fetched successfully", c.FineName)), "")
@@ -251,8 +251,8 @@ func (c *Controller[T1, T2]) Stat(g *gin.Context) {
 // @RequestMapping{Method: annotation.GET}
 func (c *Controller[T1, T2]) Index(g *gin.Context) {
 	var t1 *T1
-	authentication := c.getAuthentication(g)
-	c.validateRouteAccess(g, INDEX, "the GET '**/' route is not supported for this resource")
+	authentication := c.GetAuthentication(g)
+	c.ValidateRouteAccess(g, INDEX, "the GET '**/' route is not supported for this resource")
 	st := util.InvokeSurefireMethod(c.Self, "SanitizeAndGetRequestParameters", reflect.ValueOf(g), reflect.ValueOf(authentication))[0].Interface().(*gin.Context)
 	g = util.InvokeSurefireMethod(c.Self, "PreQuery", reflect.ValueOf(st), reflect.ValueOf(authentication))[0].Interface().(*gin.Context)
 	pageble := util.GetDeclaredFieldValueAs[bool](c, "Pageble")
@@ -269,8 +269,8 @@ func (c *Controller[T1, T2]) Index(g *gin.Context) {
 // @Validated()
 // @RequestMapping{Method: annotation.POST}
 func (c *Controller[T1, T2]) Store(g *gin.Context) {
-	authentication := c.getAuthentication(g)
-	c.validateRouteAccess(g, STORE, "the POST '**/' route is not supported for this resource")
+	authentication := c.GetAuthentication(g)
+	c.ValidateRouteAccess(g, STORE, "the POST '**/' route is not supported for this resource")
 	var request *T2
 	if err := g.ShouldBindJSON(&request); err != nil {
 		panic(errors.New("invalid request payload, " + err.Error()))
@@ -303,8 +303,8 @@ func (c *Controller[T1, T2]) Store(g *gin.Context) {
 
 // @RequestMapping{Value:  "/multiple", Method: annotation.POST}
 func (c *Controller[T1, T2]) StoreMultiple(g *gin.Context) {
-	authentication := c.getAuthentication(g)
-	c.validateRouteAccess(g, STORE_MULTIPLE, "the POST '**/multiple' route is not supported for this resource")
+	authentication := c.GetAuthentication(g)
+	c.ValidateRouteAccess(g, STORE_MULTIPLE, "the POST '**/multiple' route is not supported for this resource")
 	var requests []*T2
 	var resources []*T1
 	if err := g.ShouldBindJSON(&requests); err != nil {
@@ -344,9 +344,9 @@ func (c *Controller[T1, T2]) StoreMultiple(g *gin.Context) {
 
 // @RequestMapping{Value:  "/:id", Method: annotation.GET}
 func (c *Controller[T1, T2]) Show(g *gin.Context) {
-	c.validateRouteAccess(g, SHOW, "the GET '**/:id' route is not supported for this resource")
+	c.ValidateRouteAccess(g, SHOW, "the GET '**/:id' route is not supported for this resource")
 	id := g.Param("id")
-	authentication := c.getAuthentication(g)
+	authentication := c.GetAuthentication(g)
 	resource := util.InvokeSurefireMethod(c.Self, "GetResourceById", reflect.ValueOf(id), reflect.ValueOf(authentication))[0].Interface().(*T1)
 	util.InvokeSurefireMethod(c.Self, "PostGetResourceById", reflect.ValueOf(g), reflect.ValueOf(authentication), reflect.ValueOf(resource))
 	util.InvokeSurefireMethod(c.Self, "PreResponse", reflect.ValueOf(resource))
@@ -356,14 +356,14 @@ func (c *Controller[T1, T2]) Show(g *gin.Context) {
 // @Validated(Groups: []string{"UPDATE"})
 // @RequestMapping{Value:  "/:id", Method: annotation.PATCH}
 func (c *Controller[T1, T2]) Update(g *gin.Context) {
-	c.validateRouteAccess(g, UPDATE, "the PATCH '**/:id' route is not supported for this resource")
+	c.ValidateRouteAccess(g, UPDATE, "the PATCH '**/:id' route is not supported for this resource")
 	id := g.Param("id")
 	var request *T2
 	if err := g.BindJSON(&request); err != nil {
 		panic(errors.New("invalid request payload, " + err.Error()))
 	}
 	var t1 T1
-	authentication := c.getAuthentication(g)
+	authentication := c.GetAuthentication(g)
 	prevResource := reflect.New(reflect.TypeOf(t1))
 	async := util.GetDeclaredFieldValueAs[bool](c, "UpdateAsynchronously")
 	resource := util.InvokeSurefireMethod(c.Self, "GetResourceById", reflect.ValueOf(id), reflect.ValueOf(authentication))[0].Interface().(*T1)
@@ -399,9 +399,9 @@ func (c *Controller[T1, T2]) Update(g *gin.Context) {
 
 // @RequestMapping{Value:  "/:id", Method: annotation.DELETE}
 func (c *Controller[T1, T2]) Destroy(g *gin.Context) {
-	c.validateRouteAccess(g, DESTROY, "the DELETE '**/:id' route is not supported for this resource")
+	c.ValidateRouteAccess(g, DESTROY, "the DELETE '**/:id' route is not supported for this resource")
 	id := g.Param("id")
-	authentication := c.getAuthentication(g)
+	authentication := c.GetAuthentication(g)
 	async := util.GetDeclaredFieldValueAs[bool](c, "DeleteAsynchronously")
 	resource := util.InvokeSurefireMethod(c.Self, "GetResourceById", reflect.ValueOf(id), reflect.ValueOf(authentication))[0].Interface().(*T1)
 	util.InvokeSurefireMethod(c.Self, "PostGetResourceById", reflect.ValueOf(g), reflect.ValueOf(authentication), reflect.ValueOf(resource))
@@ -428,13 +428,13 @@ func (c *Controller[T1, T2]) Destroy(g *gin.Context) {
 
 // @RequestMapping{Value:  "/multiple", Method: annotation.DELETE}
 func (c *Controller[T1, T2]) DestroyMultiple(g *gin.Context) {
-	c.validateRouteAccess(g, DESTROY_MULTIPLE, "the DELETE '**/multiple' route is not supported for this resource")
+	c.ValidateRouteAccess(g, DESTROY_MULTIPLE, "the DELETE '**/multiple' route is not supported for this resource")
 	var ids []any
 	var resources []*T1
 	if err := g.ShouldBindJSON(&ids); err != nil {
 		panic(errors.New("invalid request payload for multiple deletion, " + err.Error()))
 	}
-	authentication := c.getAuthentication(g)
+	authentication := c.GetAuthentication(g)
 	async := util.GetDeclaredFieldValueAs[bool](c, "DeleteAsynchronously")
 	for _, id := range ids {
 		resources = append(resources,

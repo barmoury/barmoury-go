@@ -19,7 +19,7 @@ type QueryArmoury struct {
 	Db *gorm.DB
 }
 
-func (q QueryArmoury) PageQuery(g *gin.Context, clazz any, resolveSubEntities bool, pageable bool, logger any) any {
+func (q QueryArmoury) PageQuery(g *gin.Context, clazz any, resolveSubEntities bool, pageable bool, logger any) any { // TODO accepts ignore pagination, page and size
 	var count int64
 	cl := util.GetFieldPtrType(clazz)
 	ct := util.GetFieldPtrValue(clazz).Interface()
