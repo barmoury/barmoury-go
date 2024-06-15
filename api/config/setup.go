@@ -39,6 +39,7 @@ type BacuatorInterface interface {
 }
 
 type RouterOption struct {
+	InitDb      bool
 	Prefix      string
 	Db          *gorm.DB
 	LogLevel    log.Level
@@ -52,7 +53,7 @@ func RegisterControllers(engine *gin.Engine, opts RouterOption, controllers []me
 	if opts.RouterGroup == nil {
 		opts.RouterGroup = engine.Group(util.GetOrDefault(opts.Prefix, ""))
 	}
-	if opts.Db == nil {
+	if opts.Db == nil && opts.InitDb {
 		opts.Db = createDefaultGormDbConnection(opts.LogLevel)
 		BarmouryGormDb = opts.Db
 	}
