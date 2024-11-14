@@ -220,6 +220,10 @@ func (c *Controller[T1, T2]) InjectUpdateFieldId(g *gin.Context, resourceRequest
 func (c *Controller[T1, T2]) ResolveRequestPayload(authentication any, resourceRequest *T2) *T1 {
 	var t1_ T1
 	t1 := &t1_
+	srm := util.GetDeclaredMethodValue(&t1, "SuperResolve")
+	if srm.IsValid() {
+		t1 = srm.Call([]reflect.Value{reflect.ValueOf(resourceRequest), reflect.ValueOf(c.QueryArmoury), reflect.ValueOf(authentication), reflect.ValueOf(t1)})[0].Interface().(*T1)
+	}
 	rm := util.GetDeclaredMethodValue(&t1, "Resolve")
 	if rm.IsValid() {
 		t1 = rm.Call([]reflect.Value{reflect.ValueOf(resourceRequest), reflect.ValueOf(c.QueryArmoury), reflect.ValueOf(authentication)})[0].Interface().(*T1)
@@ -273,7 +277,7 @@ func (c *Controller[T1, T2]) Store(g *gin.Context) {
 	c.ValidateRouteAccess(g, STORE, "the POST '**/' route is not supported for this resource")
 	var request *T2
 	if err := g.ShouldBindJSON(&request); err != nil {
-		panic(errors.New("invalid request payload, " + err.Error()))
+		panic(errors.New("invalid request payload\n" + err.Error()))
 	}
 	async := util.GetDeclaredFieldValueAs[bool](c, "StoreAsynchronously")
 	resource := util.InvokeSurefireMethod(c.Self, "ResolveRequestPayload", reflect.ValueOf(authentication), reflect.ValueOf(request))[0].Interface().(*T1)
@@ -308,7 +312,7 @@ func (c *Controller[T1, T2]) StoreMultiple(g *gin.Context) {
 	var requests []*T2
 	var resources []*T1
 	if err := g.ShouldBindJSON(&requests); err != nil {
-		panic(errors.New("invalid request payload, " + err.Error()))
+		panic(errors.New("invalid request payload\n" + err.Error()))
 	}
 	async := util.GetDeclaredFieldValueAs[bool](c, "StoreAsynchronously")
 	for _, request := range requests {
@@ -360,7 +364,7 @@ func (c *Controller[T1, T2]) Update(g *gin.Context) {
 	id := g.Param("id")
 	var request *T2
 	if err := g.BindJSON(&request); err != nil {
-		panic(errors.New("invalid request payload, " + err.Error()))
+		panic(errors.New("invalid request payload\n" + err.Error()))
 	}
 	var t1 T1
 	authentication := c.GetAuthentication(g)
@@ -369,6 +373,10 @@ func (c *Controller[T1, T2]) Update(g *gin.Context) {
 	resource := util.InvokeSurefireMethod(c.Self, "GetResourceById", reflect.ValueOf(id), reflect.ValueOf(authentication))[0].Interface().(*T1)
 	copier.Copy(&prevResource, resource)
 	util.InvokeSurefireMethod(c.Self, "PostGetResourceById", reflect.ValueOf(g), reflect.ValueOf(authentication), reflect.ValueOf(resource))
+	srm := util.GetDeclaredMethodValue(&resource, "SuperResolve")
+	if srm.IsValid() {
+		resource = srm.Call([]reflect.Value{reflect.ValueOf(request), reflect.ValueOf(c.QueryArmoury), reflect.ValueOf(authentication), reflect.ValueOf(t1)})[0].Interface().(*T1)
+	}
 	rm := util.GetDeclaredMethodValue(&resource, "Resolve")
 	if rm.IsValid() {
 		resource = rm.Call([]reflect.Value{reflect.ValueOf(request), reflect.ValueOf(c.QueryArmoury), reflect.ValueOf(authentication)})[0].Interface().(*T1)
@@ -432,7 +440,7 @@ func (c *Controller[T1, T2]) DestroyMultiple(g *gin.Context) {
 	var ids []any
 	var resources []*T1
 	if err := g.ShouldBindJSON(&ids); err != nil {
-		panic(errors.New("invalid request payload for multiple deletion, " + err.Error()))
+		panic(errors.New("invalid request payload for multiple deletion\n" + err.Error()))
 	}
 	authentication := c.GetAuthentication(g)
 	async := util.GetDeclaredFieldValueAs[bool](c, "DeleteAsynchronously")

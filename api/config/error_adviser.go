@@ -146,6 +146,7 @@ func (e ErrorAdviser) AttributesAnnotations() map[string]map[string]any {
 		StatusCode: 400,
 		Errors: []string{
 			"invalid request payload",
+			"missing required query parameter",
 		},
 	}
 	m["BadRequestErrors"] = s5
@@ -200,9 +201,9 @@ func (e ErrorAdviser) ForbiddenErrors(err error, opts ErrorAdviserOption) any {
 	return e.processErrorResponse(err, []string{err.Error()}, opts)
 }
 
-// @ErrorAdvise{ Errors: ["invalid request payload"], StatusCode: 400 }
+// @ErrorAdvise{ Errors: ["invalid request payload", "missing required query parameter"], StatusCode: 400 }
 func (e ErrorAdviser) BadRequestErrors(err error, opts ErrorAdviserOption) any {
-	return e.processErrorResponse(err, []string{err.Error()}, opts)
+	return e.processErrorResponse(err, strings.Split(err.Error(), "\n"), opts)
 }
 
 // @ErrorAdvise{ Errors: ["route is not supported"], StatusCode: 405 }
