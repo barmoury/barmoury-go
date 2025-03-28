@@ -12,12 +12,13 @@ import (
 )
 
 type JwtManagerOption struct {
-	Prefix          string
-	AuthorityPrefix string
-	OpenUrlPatterns []IRoute
-	Secrets         map[string]string
-	Encryptor       crypto.IEncryptor[any]
-	Validate        func(*gin.Context, string, model.UserDetails[any]) bool
+	Prefix              string
+	AuthorityPrefix     string
+	OpenUrlPatterns     []IRoute
+	OptionalUrlPatterns []IRoute
+	Secrets             map[string]string
+	Encryptor           crypto.IEncryptor[any]
+	Validate            func(*gin.Context, string, model.UserDetails[any]) bool
 }
 
 func RegisterJwt(engine *gin.Engine, opts JwtManagerOption) {
@@ -74,6 +75,9 @@ func RegisterJwt(engine *gin.Engine, opts JwtManagerOption) {
 			}
 			atp := strings.Split(c.GetHeader("Authorization"), " ")
 			if len(atp) < 2 || atp[1] == "" {
+				if len(opts.OptionalUrlPatterns) > 0 && ShouldNotFilter(c, opts.Prefix, opts.OptionalUrlPatterns) {
+					return
+				}
 				panic(errors.New("authorization token is missing"))
 			}
 			s := signer(atp[1], c)

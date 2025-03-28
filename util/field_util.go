@@ -82,6 +82,16 @@ func SetFieldValue(i interface{}, name string, value interface{}) {
 
 }
 
+func SetFieldValueToZero(i interface{}, name string) {
+	v := GetFieldNonPtrValue(i)
+	f := v.FieldByName(name)
+	if !f.CanSet() {
+		return
+	}
+	f.SetZero()
+
+}
+
 func GetDeclaredMethod(i interface{}, name string) (reflect.Method, bool) {
 	t := GetFieldNonPtrType(i)
 	return t.MethodByName(name)

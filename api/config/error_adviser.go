@@ -164,10 +164,21 @@ func (e ErrorAdviser) AttributesAnnotations() map[string]map[string]any {
 	s7["ErrorAdvise"] = annotation.ErrorAdvise{
 		StatusCode: 400,
 		Errors: []string{
+			"Error 1452 (23000)",
 			"error in your SQL syntax",
 		},
 	}
 	m["DatabaseErrors"] = s7
+
+	s8 := make(map[string]any)
+	s8["ErrorAdvise"] = annotation.ErrorAdvise{
+		StatusCode: 400,
+		Errors: []string{
+			"Error 1062 (23000)",
+			"Error 1292 (22007)",
+		},
+	}
+	m["DatabaseDuplicateErrors"] = s8
 
 	return m
 }
@@ -211,7 +222,12 @@ func (e ErrorAdviser) MethodNotAllowedErrors(err error, opts ErrorAdviserOption)
 	return e.processErrorResponse(err, []string{err.Error()}, opts)
 }
 
-// @ErrorAdvise{ Errors: ["error in your SQL syntax"], StatusCode: 400 }
+// @ErrorAdvise{ Errors: ["Error 1452 (23000)", "error in your SQL syntax"], StatusCode: 400 }
 func (e ErrorAdviser) DatabaseErrors(err error, opts ErrorAdviserOption) any {
 	return e.processErrorResponse(err, []string{"an error occur during persistence, check your request"}, opts)
+}
+
+// @ErrorAdvise{ Errors: ["Error 1062 (23000)", "Error 1292 (22007)"], StatusCode: 400 }
+func (e ErrorAdviser) DatabaseDuplicateErrors(err error, opts ErrorAdviserOption) any {
+	return e.processErrorResponse(err, []string{"duplicate or constraint error during persistence", err.Error()}, opts)
 }

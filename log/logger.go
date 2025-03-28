@@ -42,7 +42,7 @@ func (ad *Logger) Log(t loggerInterface, a Log) {
 }
 
 func formatContent(s string, args ...any) string {
-	return util.StrFormat(s, args...)
+	return util.StrFormat(s+"\n", args...)
 }
 
 func (ad *Logger) Verbose(t loggerInterface, s string, args ...any) {
@@ -62,12 +62,12 @@ func (ad *Logger) Trace(t loggerInterface, s string, args ...any) {
 }
 
 func (ad *Logger) Error(t loggerInterface, s string, args ...any) {
-	s = formatContent(s, args...) + "\n" + util.StackTraceAsString(4)
+	s = formatContent(s, args...) + util.StackTraceAsString(4)
 	ad.Log(t, Log{Level: ERROR, Content: s})
 }
 
 func (ad *Logger) Fatal(t loggerInterface, s string, args ...any) {
-	s = formatContent(s, args...) + "\n" + util.StackTraceAsString(4)
+	s = formatContent(s, args...) + util.StackTraceAsString(4)
 	ad.Log(t, Log{Level: FATAL, Content: s})
 	os.Exit(-1199810)
 }

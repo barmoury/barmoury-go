@@ -288,7 +288,7 @@ func (c *Controller[T1, T2]) Store(g *gin.Context) {
 	}
 	if async {
 		go func() {
-			if err := c.QueryArmoury.Db.Create(resource).Error; err != nil {
+			if err := c.QueryArmoury.Db.Create(&resource).Error; err != nil {
 				util.InvokeSurefireMethod(c.Self, "OnAsynchronousError", reflect.ValueOf("Store"), reflect.ValueOf(resource), reflect.ValueOf(err))
 				return
 			}
@@ -297,7 +297,7 @@ func (c *Controller[T1, T2]) Store(g *gin.Context) {
 		c.processResponse(g, http.StatusAccepted, model.NewApiResponse[any](nil, util.StrFormat("%s is being created", c.FineName)), "")
 		return
 	}
-	if err := c.QueryArmoury.Db.Create(resource).Error; err != nil {
+	if err := c.QueryArmoury.Db.Create(&resource).Error; err != nil {
 		panic(err)
 	}
 	util.InvokeSurefireMethod(c.Self, "PostCreate", reflect.ValueOf(g), reflect.ValueOf(authentication), reflect.ValueOf(resource))
@@ -324,7 +324,7 @@ func (c *Controller[T1, T2]) StoreMultiple(g *gin.Context) {
 		}
 		if async {
 			go func() {
-				if err := c.QueryArmoury.Db.Create(resource).Error; err != nil {
+				if err := c.QueryArmoury.Db.Create(&resource).Error; err != nil {
 					util.InvokeSurefireMethod(c.Self, "OnAsynchronousError", reflect.ValueOf("Store"), reflect.ValueOf(resource), reflect.ValueOf(err))
 					return
 				}
@@ -332,7 +332,7 @@ func (c *Controller[T1, T2]) StoreMultiple(g *gin.Context) {
 			}()
 			continue
 		}
-		if err := c.QueryArmoury.Db.Create(resource).Error; err != nil {
+		if err := c.QueryArmoury.Db.Create(&resource).Error; err != nil {
 			panic(err)
 		}
 		util.InvokeSurefireMethod(c.Self, "PostCreate", reflect.ValueOf(g), reflect.ValueOf(authentication), reflect.ValueOf(resource))
@@ -363,9 +363,7 @@ func (c *Controller[T1, T2]) Update(g *gin.Context) {
 	c.ValidateRouteAccess(g, UPDATE, "the PATCH '**/:id' route is not supported for this resource")
 	id := g.Param("id")
 	var request *T2
-	if err := g.BindJSON(&request); err != nil {
-		panic(errors.New("invalid request payload\n" + err.Error()))
-	}
+	_ = g.ShouldBindJSON(&request)
 	var t1 T1
 	authentication := c.GetAuthentication(g)
 	prevResource := reflect.New(reflect.TypeOf(t1))
@@ -375,7 +373,7 @@ func (c *Controller[T1, T2]) Update(g *gin.Context) {
 	util.InvokeSurefireMethod(c.Self, "PostGetResourceById", reflect.ValueOf(g), reflect.ValueOf(authentication), reflect.ValueOf(resource))
 	srm := util.GetDeclaredMethodValue(&resource, "SuperResolve")
 	if srm.IsValid() {
-		resource = srm.Call([]reflect.Value{reflect.ValueOf(request), reflect.ValueOf(c.QueryArmoury), reflect.ValueOf(authentication), reflect.ValueOf(t1)})[0].Interface().(*T1)
+		resource = srm.Call([]reflect.Value{reflect.ValueOf(request), reflect.ValueOf(c.QueryArmoury), reflect.ValueOf(authentication), reflect.ValueOf(resource)})[0].Interface().(*T1)
 	}
 	rm := util.GetDeclaredMethodValue(&resource, "Resolve")
 	if rm.IsValid() {
@@ -388,7 +386,7 @@ func (c *Controller[T1, T2]) Update(g *gin.Context) {
 	}
 	if async {
 		go func() {
-			if err := c.QueryArmoury.Db.Save(resource).Error; err != nil {
+			if err := c.QueryArmoury.Db.Save(&resource).Error; err != nil {
 				util.InvokeSurefireMethod(c.Self, "OnAsynchronousError", reflect.ValueOf("Update"), reflect.ValueOf(resource), reflect.ValueOf(err))
 				return
 			}
@@ -397,12 +395,12 @@ func (c *Controller[T1, T2]) Update(g *gin.Context) {
 		c.processResponse(g, http.StatusAccepted, model.NewApiResponse[any](nil, util.StrFormat("%s is being created", c.FineName)), "")
 		return
 	}
-	if err := c.QueryArmoury.Db.Save(resource).Error; err != nil {
+	if err := c.QueryArmoury.Db.Save(&resource).Error; err != nil {
 		panic(err)
 	}
 	util.InvokeSurefireMethod(c.Self, "PostUpdate", reflect.ValueOf(g), reflect.ValueOf(authentication), reflect.ValueOf(resource), reflect.ValueOf(resource))
 	util.InvokeSurefireMethod(c.Self, "PreResponse", reflect.ValueOf(resource))
-	c.processResponse(g, http.StatusCreated, model.NewApiResponse(resource, util.StrFormat("%s updated successfully", c.FineName)), "")
+	c.processResponse(g, http.StatusOK, model.NewApiResponse(resource, util.StrFormat("%s updated successfully", c.FineName)), "")
 }
 
 // @RequestMapping{Value:  "/:id", Method: annotation.DELETE}
