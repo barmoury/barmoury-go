@@ -31,7 +31,9 @@ func (q QueryArmoury) PageQuery(g *gin.Context, clazz any, resolveSubEntities bo
 		panic(db.Error)
 	}
 	rc := db.RowsAffected
-	if err := q.Db.Model(ct).Count(&count).Error; err != nil { // TODO use the filters
+	countDb := q.Db
+	countDb = q.buildWhereFilter(countDb, request_fields, nil)
+	if err := countDb.Model(ct).Count(&count).Error; err != nil { // TODO use the filters
 		panic(err)
 	}
 	if pageable {
