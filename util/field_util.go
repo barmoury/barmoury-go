@@ -174,6 +174,21 @@ func TranverseDeclaredMethods(i interface{}, fn func(reflect.Method, reflect.Val
 	}
 }
 
+func TranverseFields(i interface{}, fn func(reflect.StructField)) {
+	t := GetFieldNonPtrType(i)
+	for j := 0; j < t.NumField(); j++ {
+		fn(t.Field(j))
+	}
+}
+
+func TranverseDeclaredFields(i interface{}, fn func(reflect.StructField, reflect.Value)) {
+	t := GetFieldNonPtrType(i)
+	v := GetFieldNonPtrValue(i)
+	for j := 0; j < v.NumField(); j++ {
+		fn(t.Field(j), v.Field(j))
+	}
+}
+
 func GetTypeName(i interface{}) string {
 	t := GetFieldNonPtrType(i)
 	return t.Name()

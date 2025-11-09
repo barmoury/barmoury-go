@@ -24,7 +24,9 @@ func (q QueryArmoury) PageQuery(g *gin.Context, clazz any, resolveSubEntities bo
 	cl := util.GetFieldPtrType(clazz)
 	ct := util.GetFieldPtrValue(clazz).Interface()
 	t1_ := reflect.MakeSlice(reflect.SliceOf(cl), 0, 0).Interface()
+	request_fields := q.resolveQueryFields(g, clazz, false)
 	db, page, offset, limit, sorted, paged := q.buildPageFilter(q.Db, g)
+	db = q.buildWhereFilter(db, request_fields, nil)
 	if db = db.Find(&t1_); db.Error != nil { // TODO use the filters
 		panic(db.Error)
 	}
@@ -36,6 +38,183 @@ func (q QueryArmoury) PageQuery(g *gin.Context, clazz any, resolveSubEntities bo
 		return q.PaginateResult(t1_, rc, page, offset, limit, count, sorted, paged)
 	}
 	return t1_
+}
+
+func (q QueryArmoury) buildWhereFilter(db *gorm.DB, request_fields map[string][]any, join_tables any) *gorm.DB {
+	for matching_field_name, values := range request_fields {
+		column_name := values[0]
+		request_param_filter := values[2]
+		db = q.getRelationQueryPart(db, column_name.(string), false, matching_field_name, request_param_filter.(map[string]any)["operator"].(string), values[3].([]string))
+	}
+	return db
+}
+
+func (q QueryArmoury) getRelationQueryPart(db *gorm.DB, column_name string, is_entity_field bool, matching_field_name string, operator string, values []string) *gorm.DB {
+	/*matching_field_name_parts := strings.Split(matching_field_name, ".")
+	object_field := matching_field_name_parts[0]
+	if len(matching_field_name_parts) > 1 {
+		object_field = matching_field_name_parts[1]
+	}*/
+	if operator == "EQ" {
+		db = db.Where(util.StrFormat("%s = ?", column_name), values[0])
+	} else if operator == "GT" {
+		db = db.Where(util.StrFormat("%s > ?", column_name), values[0])
+	} else if operator == "LT" {
+		db = db.Where(util.StrFormat("%s < ?", column_name), values[0])
+	} else if operator == "NE" {
+		db = db.Where(util.StrFormat("%s != ?", column_name), values[0])
+	} else if operator == "IN" {
+		db = db.Where(util.StrFormat("%s IN ?", column_name), values)
+	} else if operator == "GT_EQ" {
+		db = db.Where(util.StrFormat("%s >= ?", column_name), values[0])
+	} else if operator == "LT_EQ" {
+		db = db.Where(util.StrFormat("%s <= ?", column_name), values[0])
+	} else if operator == "LIKE" || operator == "CONTAINS" {
+		db = db.Where(util.StrFormat("%s LIKE ?", column_name), util.StrFormat("%%%v%%", values[0]))
+	} else if operator == "ILIKE" {
+		db = db.Where(util.StrFormat("%s ILIKE ?", column_name), util.StrFormat("%%%v%%", values[0]))
+	} else if operator == "NOT_LIKE" || operator == "NOT_CONTAINS" {
+		db = db.Where(util.StrFormat("%s NOT LIKE ?", column_name), util.StrFormat("%%%v%%", values[0]))
+	} else if operator == "NOT_ILIKE" {
+		db = db.Where(util.StrFormat("%s NOT_ILIKE ?", column_name), util.StrFormat("%%%v%%", values[0]))
+	} else if operator == "ENDS_WITH" {
+		db = db.Where(util.StrFormat("%s LIKE ?", column_name), util.StrFormat("%%%v", values[0]))
+	} else if operator == "STARTS_WITH" {
+		db = db.Where(util.StrFormat("%s LIKE ?", column_name), util.StrFormat("%v%%", values[0]))
+	} else if operator == "NOT_IN" {
+		db = db.Where(util.StrFormat("%s NOT IN ?", column_name), values)
+	} else if operator == "BETWEEN" {
+		db = db.Where(util.StrFormat("%s BETWEEN ?", column_name), values)
+	} else if operator == "NOT_BETWEEN" {
+		db = db.Where(util.StrFormat("%s NOT BETWEEN ?", column_name), values)
+	}
+	return db
+}
+
+func (q QueryArmoury) resolveQueryFields(c *gin.Context, clazz any, resolve_stat_query_annotations bool) map[string][]any {
+	request_fields := map[string][]any{}
+	util.TranverseFields(clazz, func(f reflect.StructField) {
+		rpfs_tag := f.Tag.Get("request_param_filters")
+		if rpfs_tag == "" {
+			return
+		}
+		main_field_name := f.Name
+		rpfs := strings.Split(rpfs_tag, "|")
+		for _, rpf := range rpfs {
+			extra_field_names := []string{}
+			params := strings.Split(rpf, ",")
+			field_name := main_field_name
+			column_name := main_field_name // get and process from the gorm tag
+			request_param_filter := map[string]any{
+				"multi_filter_separator": "__",
+				"operator":               "NONE",
+			}
+			for _, param := range params {
+				param_parts := strings.Split(param, "=")
+				value := ""
+				key := param_parts[0]
+				if len(param_parts) > 1 {
+					value = param_parts[1]
+				}
+				if key == "column" {
+					column_name = value
+				} else if key == "column_is_snake_case" {
+					column_name = util.ToSnakeCase(column_name)
+				} else if key == "field_is_snake_case" {
+					request_param_filter["field_is_snake_case"] = true
+					field_name = util.ToSnakeCase(field_name)
+				} else if key == "multi_filter_separator" {
+					request_param_filter["multi_filter_separator"] = value
+				} else if key == "operator" {
+					request_param_filter["operator"] = value
+					if len(rpfs) > 1 {
+						field_name = util.StrFormat("%v%v%s%v", field_name, request_param_filter["multi_filter_separator"], request_param_filter["operator"].(string)[:1], request_param_filter["operator"].(string)[1:])
+					}
+				}
+				// handle aliases
+			}
+			extra_field_names = append(extra_field_names, field_name)
+			if !resolve_stat_query_annotations {
+
+			}
+			q.resolveQueryForSingleField(c, request_fields, request_param_filter, resolve_stat_query_annotations, extra_field_names, column_name, f)
+		}
+	})
+	return request_fields
+}
+
+func (q QueryArmoury) resolveQueryForSingleField(c *gin.Context, request_fields map[string][]any, request_param_filter map[string]any,
+	resolve_stat_query_annotations bool, query_params []string, column_name string, field reflect.StructField) {
+	query := c.Request.URL.Query()
+	for _, query_param := range query_params {
+		is_present := false
+		values := []string{}
+		is_entity := !resolve_stat_query_annotations && request_param_filter["operator"] == "ENTITY"
+		object_filter := (!resolve_stat_query_annotations &&
+			(request_param_filter["operator"] == "OBJECT_EQ" ||
+				request_param_filter["operator"] == "OBJECT_NE" ||
+				request_param_filter["operator"] == "OBJECT_LIKE" ||
+				request_param_filter["operator"] == "OBJECT_STR_EQ" ||
+				request_param_filter["operator"] == "OBJECT_STR_NE" ||
+				request_param_filter["operator"] == "OBJECT_NOT_LIKE" ||
+				request_param_filter["operator"] == "OBJECT_CONTAINS" ||
+				request_param_filter["operator"] == "OBJECT_ENDS_WITH" ||
+				request_param_filter["operator"] == "OBJECT_STARTS_WITH" ||
+				request_param_filter["operator"] == "OBJECT_NOT_CONTAINS" ||
+				request_param_filter["operator"] == "OBJECT_STR_ENDS_WITH" ||
+				request_param_filter["operator"] == "OBJECT_STR_STARTS_WITH"))
+		if !resolve_stat_query_annotations {
+			for key, e_values := range query {
+				if key == query_param || ((object_filter || is_entity) && strings.HasPrefix(key, query_param+".")) {
+					any_value_present := false
+					for _, value := range e_values {
+						if value == "" {
+							continue
+						}
+						if request_param_filter["boolean_to_int"] == "true" {
+							value = util.If(value == "true", "1", "0")
+						}
+						values = append(values, value)
+						is_present = true
+						if !any_value_present {
+							any_value_present = true
+						}
+						if !any_value_present {
+							continue
+						}
+					}
+					query_param = util.If(object_filter && request_param_filter["column_object_fields_is_snake_case"] != "", util.ToSnakeCase(key), key)
+					break
+				}
+			}
+			_, ok := request_param_filter["always_query"]
+			if !resolve_stat_query_annotations && !is_present && !ok {
+				continue
+			}
+			if _, ok = request_fields[query_param]; ok {
+				continue
+			}
+			if resolve_stat_query_annotations {
+				query_param = field.Name
+			}
+			// handle join columns
+			// end handle join column
+			rf_value := []any{
+				column_name,
+				is_present,
+				request_param_filter,
+				values,
+			}
+			if resolve_stat_query_annotations {
+
+			}
+			/*if (!resolveStatQueryAnnotations && entity != null) {
+			    requestFields.put(queryParam, fieldClass);
+			    joinTables.put(entity.name(), joinColumn);
+			}*/
+			request_fields[query_param] = rf_value
+		}
+	}
 }
 
 func (q QueryArmoury) buildPageFilter(db *gorm.DB, c *gin.Context) (*gorm.DB, int, int64, int64, bool, bool) {

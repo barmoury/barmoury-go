@@ -45,9 +45,9 @@ func RegisterJwt(engine *gin.Engine, opts JwtManagerOption) {
 			var bd map[string]interface{}
 			if sub_, ok := claims["sub"]; ok {
 				sub = sub_
-				if bd_, ok := claims["BARMOURY_DATA"]; ok {
+				if bd_, ok := claims["_BJD_"]; ok {
 					bd = bd_.(map[string]interface{})
-					if bas_, ok := claims["BARMOURY_AUTHORITIES"]; ok {
+					if bas_, ok := claims["_BJA_"]; ok {
 						for _, v := range bas_.([]interface{}) {
 							bas = append(bas, v.(string))
 						}

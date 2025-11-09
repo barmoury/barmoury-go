@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"reflect"
+	"strings"
 
 	"github.com/barmoury/barmoury-go/api/annotation"
 	"github.com/barmoury/barmoury-go/api/config"
@@ -217,16 +218,23 @@ func (c *Controller[T1, T2]) InjectUpdateFieldId(g *gin.Context, resourceRequest
 	return resourceRequest
 }
 
-func (c *Controller[T1, T2]) ResolveRequestPayload(authentication any, resourceRequest *T2) *T1 {
+func (c *Controller[T1, T2]) ResolveRequestPayload(authentication any, resourceRequest *T2) (t1 *T1) {
 	var t1_ T1
-	t1 := &t1_
+	t1 = &t1_
 	srm := util.GetDeclaredMethodValue(&t1, "SuperResolve")
 	if srm.IsValid() {
 		t1 = srm.Call([]reflect.Value{reflect.ValueOf(resourceRequest), reflect.ValueOf(c.QueryArmoury), reflect.ValueOf(authentication), reflect.ValueOf(t1)})[0].Interface().(*T1)
 	}
 	rm := util.GetDeclaredMethodValue(&t1, "Resolve")
 	if rm.IsValid() {
-		t1 = rm.Call([]reflect.Value{reflect.ValueOf(resourceRequest), reflect.ValueOf(c.QueryArmoury), reflect.ValueOf(authentication)})[0].Interface().(*T1)
+		defer func() {
+			if r := recover(); r != nil {
+				if strings.Contains(util.StrFormat("%s", r), "Call with too many input arguments") {
+					t1 = rm.Call([]reflect.Value{reflect.ValueOf(resourceRequest), reflect.ValueOf(c.QueryArmoury), reflect.ValueOf(authentication)})[0].Interface().(*T1)
+				}
+			}
+		}()
+		t1 = rm.Call([]reflect.Value{reflect.ValueOf(resourceRequest), reflect.ValueOf(c.QueryArmoury), reflect.ValueOf(authentication), reflect.ValueOf(t1)})[0].Interface().(*T1)
 	}
 	return t1
 }
