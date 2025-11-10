@@ -130,7 +130,9 @@ func (q QueryArmoury) resolveQueryFields(c *gin.Context, clazz any, resolve_stat
 				} else if key == "operator" {
 					request_param_filter["operator"] = value
 					if len(rpfs) > 1 {
-						field_name = util.StrFormat("%v%v%s%v", field_name, request_param_filter["multi_filter_separator"], request_param_filter["operator"].(string)[:1], request_param_filter["operator"].(string)[1:])
+						extension := request_param_filter["operator"].(string)
+						extra_field_names = append(extra_field_names, util.StrFormat("%v%v%s", field_name, request_param_filter["multi_filter_separator"], strings.ToLower(extension)))
+						field_name = util.StrFormat("%v%v%s", field_name, request_param_filter["multi_filter_separator"], extension)
 					}
 				}
 				// handle aliases
