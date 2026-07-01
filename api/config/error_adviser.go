@@ -133,6 +133,7 @@ func (e ErrorAdviser) AttributesAnnotations() map[string]map[string]any {
 	s4["ErrorAdvise"] = annotation.ErrorAdvise{
 		StatusCode: 401,
 		Errors: []string{
+			"invalid authorization token",
 			"authorization token is missing",
 			"validation failed for the request",
 			"the authorization token has expired",

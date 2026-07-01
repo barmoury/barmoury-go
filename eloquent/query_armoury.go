@@ -26,13 +26,15 @@ func (q QueryArmoury) PageQuery(g *gin.Context, clazz any, resolveSubEntities bo
 	t1_ := reflect.MakeSlice(reflect.SliceOf(cl), 0, 0).Interface()
 	request_fields := q.resolveQueryFields(g, clazz, false)
 	db, page, offset, limit, sorted, paged := q.buildPageFilter(q.Db, g)
+	db = q.getRawSqlQueriesFromRequestParameter(db, g)
 	db = q.buildWhereFilter(db, request_fields, nil)
-	if db = db.Find(&t1_); db.Error != nil { // TODO use the filters
+	if db = db.Find(&t1_).Select(util.StrFormat("%s.*", util.GetDeclaredSurefireMethod(t1_, "TableName"))); db.Error != nil { // TODO use the filters, pass which to select
 		panic(db.Error)
 	}
 	rc := db.RowsAffected
 	countDb := q.Db
 	countDb = q.buildWhereFilter(countDb, request_fields, nil)
+	countDb = q.getRawSqlQueriesFromRequestParameter(countDb, g)
 	if err := countDb.Model(ct).Count(&count).Error; err != nil { // TODO use the filters
 		panic(err)
 	}
@@ -40,6 +42,27 @@ func (q QueryArmoury) PageQuery(g *gin.Context, clazz any, resolveSubEntities bo
 		return q.PaginateResult(t1_, rc, page, offset, limit, count, sorted, paged)
 	}
 	return t1_
+}
+
+func (q QueryArmoury) getRawSqlQueriesFromRequestParameter(db *gorm.DB, g *gin.Context) *gorm.DB {
+	queryParts := [][]string{}
+	rawQueries := g.QueryArray(BARMOURY_RAW_SQL_PARAMETER_KEY)
+	if len(rawQueries) > 0 {
+		for _, rawQuery := range rawQueries {
+			//re := regexp.MustCompile(`(where|WHERE)`)
+			//queryParts = append(queryParts, re.Split(rawQuery, -1))
+			queryParts = append(queryParts, strings.Split(rawQuery, "WHERE"))
+		}
+	}
+	for _, queryPart := range queryParts {
+		if queryPart[0] != "" {
+			db = db.Joins(queryPart[0])
+		}
+		if len(queryPart) > 1 {
+			db = db.Where(queryPart[1])
+		}
+	}
+	return db
 }
 
 func (q QueryArmoury) buildWhereFilter(db *gorm.DB, request_fields map[string][]any, join_tables any) *gorm.DB {
@@ -122,6 +145,8 @@ func (q QueryArmoury) resolveQueryFields(c *gin.Context, clazz any, resolve_stat
 					column_name = value
 				} else if key == "column_is_snake_case" {
 					column_name = util.ToSnakeCase(column_name)
+				} else if key == "boolean_to_int" {
+					request_param_filter["boolean_to_int"] = true
 				} else if key == "field_is_snake_case" {
 					request_param_filter["field_is_snake_case"] = true
 					field_name = util.ToSnakeCase(field_name)
@@ -175,7 +200,7 @@ func (q QueryArmoury) resolveQueryForSingleField(c *gin.Context, request_fields 
 						if value == "" {
 							continue
 						}
-						if request_param_filter["boolean_to_int"] == "true" {
+						if request_param_filter["boolean_to_int"] == true {
 							value = util.If(value == "true", "1", "0")
 						}
 						values = append(values, value)

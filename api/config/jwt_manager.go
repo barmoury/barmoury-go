@@ -12,13 +12,14 @@ import (
 )
 
 type JwtManagerOption struct {
-	Prefix              string
-	AuthorityPrefix     string
-	OpenUrlPatterns     []IRoute
-	OptionalUrlPatterns []IRoute
-	Secrets             map[string]string
-	Encryptor           crypto.IEncryptor[any]
-	Validate            func(*gin.Context, string, model.UserDetails[any]) bool
+	ProcessAccessTokenForOpen bool
+	Prefix                    string
+	AuthorityPrefix           string
+	OpenUrlPatterns           []IRoute
+	OptionalUrlPatterns       []IRoute
+	Secrets                   map[string]string
+	Encryptor                 crypto.IEncryptor[any]
+	Validate                  func(*gin.Context, string, model.UserDetails[any]) bool
 }
 
 func RegisterJwt(engine *gin.Engine, opts JwtManagerOption) {
@@ -70,18 +71,28 @@ func RegisterJwt(engine *gin.Engine, opts JwtManagerOption) {
 			return ""
 		}
 		return func(c *gin.Context) {
-			if len(opts.OpenUrlPatterns) > 0 && ShouldNotFilter(c, opts.Prefix, opts.OpenUrlPatterns) {
+			shouldNotFilter := ShouldNotFilter(c, opts.Prefix, opts.OpenUrlPatterns)
+			if len(opts.OpenUrlPatterns) > 0 && (shouldNotFilter && !opts.ProcessAccessTokenForOpen) {
 				return
 			}
+
+			defer func() {
+				if r := recover(); r != nil {
+					if !shouldNotFilter {
+						panic(r)
+					}
+				}
+			}()
+
 			atp := strings.Split(c.GetHeader("Authorization"), " ")
 			if len(atp) < 2 || atp[1] == "" {
-				if len(opts.OptionalUrlPatterns) > 0 && ShouldNotFilter(c, opts.Prefix, opts.OptionalUrlPatterns) {
+				if len(opts.OptionalUrlPatterns) > 0 && (shouldNotFilter && !opts.ProcessAccessTokenForOpen) {
 					return
 				}
 				panic(errors.New("authorization token is missing"))
 			}
 			s := signer(atp[1], c)
-			if s != "" {
+			if s != "" && !shouldNotFilter {
 				c.Error(errors.New(s))
 				c.Abort()
 				return
